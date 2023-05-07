@@ -7,3 +7,7 @@ Begin by reading through the vits.ipynb file and executing the code line by line
 ### Dataset.ipynb
 
 VITS is an end-to-end Text-to-Speech (TTS) system, and understanding how it transforms raw resources into training data is crucial. In an end-to-end TTS, we use both waveforms and text as input. We'll delve into the process of converting these waveforms and text into suitable datasets.
+
+### Cleaner.ipynb
+
+Cleaner methods are employed to preprocess the text. By converting the text into phonetic symbols, the system can more effectively distinguish between letters with different pronunciations.
