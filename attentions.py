@@ -10,86 +10,86 @@ import modules
 from modules import LayerNorm
    
 
-# class Encoder(nn.Module):
-#   def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
-#     super().__init__()
-#     self.hidden_channels = hidden_channels
-#     self.filter_channels = filter_channels
-#     self.n_heads = n_heads
-#     self.n_layers = n_layers
-#     self.kernel_size = kernel_size
-#     self.p_dropout = p_dropout
-#     self.window_size = window_size
-
-#     self.drop = nn.Dropout(p_dropout)
-#     self.attn_layers = nn.ModuleList()
-#     self.norm_layers_1 = nn.ModuleList()
-#     self.ffn_layers = nn.ModuleList()
-#     self.norm_layers_2 = nn.ModuleList()
-#     for i in range(self.n_layers):
-#       self.attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, window_size=window_size))
-#       self.norm_layers_1.append(LayerNorm(hidden_channels))
-#       self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
-#       self.norm_layers_2.append(LayerNorm(hidden_channels))
-
-#   def forward(self, x, x_mask):
-#     attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
-#     x = x * x_mask
-#     for i in range(self.n_layers):
-#       y = self.attn_layers[i](x, x, attn_mask) # x(1, 192, 158), y(1, 192, 158)
-#       # print(y.shape)
-#       y = self.drop(y)
-#       x = self.norm_layers_1[i](x + y)
-
-#       y = self.ffn_layers[i](x, x_mask)
-#       y = self.drop(y)
-#       x = self.norm_layers_2[i](x + y)
-#     x = x * x_mask
-#     return x
-
 class Encoder(nn.Module):
-    def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
-        super().__init__()
-        self.hidden_channels = hidden_channels
-        self.filter_channels = filter_channels
-        self.n_heads = n_heads
-        self.n_layers = n_layers
-        self.kernel_size = kernel_size
-        self.p_dropout = p_dropout
-        self.window_size = window_size
+  def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
+    super().__init__()
+    self.hidden_channels = hidden_channels
+    self.filter_channels = filter_channels
+    self.n_heads = n_heads
+    self.n_layers = n_layers
+    self.kernel_size = kernel_size
+    self.p_dropout = p_dropout
+    self.window_size = window_size
 
-        self.drop = nn.Dropout(p_dropout)
-        self.attn_layers = nn.ModuleList()
-        self.norm_layers_1 = nn.ModuleList()
-        self.ffn_layers = nn.ModuleList()
-        self.norm_layers_2 = nn.ModuleList()
-        for i in range(self.n_layers):
-            self.attn_layers.append(RelativeMultiheadAttention(hidden_channels, n_heads, dropout = p_dropout, window_size=window_size))
-            self.norm_layers_1.append(LayerNorm(hidden_channels))
-            self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
-            self.norm_layers_2.append(LayerNorm(hidden_channels))
+    self.drop = nn.Dropout(p_dropout)
+    self.attn_layers = nn.ModuleList()
+    self.norm_layers_1 = nn.ModuleList()
+    self.ffn_layers = nn.ModuleList()
+    self.norm_layers_2 = nn.ModuleList()
+    for i in range(self.n_layers):
+      self.attn_layers.append(MultiHeadAttention(hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout, window_size=window_size))
+      self.norm_layers_1.append(LayerNorm(hidden_channels))
+      self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
+      self.norm_layers_2.append(LayerNorm(hidden_channels))
 
-    def forward(self, x, x_mask):
-        attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
-        print(attn_mask.shape)
-        print(x_mask.shape)
-        x = x * x_mask
-        for i in range(self.n_layers):
-            x = x.permute(2, 0, 1)  # Change shape to [seq_len, batch_size, hidden_channels]
-            y, _ = self.attn_layers[i](x, x, x, attn_mask=~attn_mask.squeeze().bool())
-            y = y.permute(1, 2, 0)
-            # print(y.shape)
-            # print(x.shape)
-            y = self.drop(y)
-            x = x.permute(1, 2, 0)
-            x = self.norm_layers_1[i](x + y)
+  def forward(self, x, x_mask):
+    attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
+    x = x * x_mask
+    for i in range(self.n_layers):
+      y = self.attn_layers[i](x, x, attn_mask) # x(1, 192, 158), y(1, 192, 158)
+      # print(y.shape)
+      y = self.drop(y)
+      x = self.norm_layers_1[i](x + y)
 
-            y = self.ffn_layers[i](x, x_mask)  # Change shape back to [batch_size, hidden_channels, seq_len]
-            y = self.drop(y)
-            x = self.norm_layers_2[i](x + y)  # Change shape back to [batch_size, hidden_channels, seq_len]
+      y = self.ffn_layers[i](x, x_mask)
+      y = self.drop(y)
+      x = self.norm_layers_2[i](x + y)
+    x = x * x_mask
+    return x
 
-        x = x * x_mask
-        return x
+# class Encoder(nn.Module):
+#     def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
+#         super().__init__()
+#         self.hidden_channels = hidden_channels
+#         self.filter_channels = filter_channels
+#         self.n_heads = n_heads
+#         self.n_layers = n_layers
+#         self.kernel_size = kernel_size
+#         self.p_dropout = p_dropout
+#         self.window_size = window_size
+
+#         self.drop = nn.Dropout(p_dropout)
+#         self.attn_layers = nn.ModuleList()
+#         self.norm_layers_1 = nn.ModuleList()
+#         self.ffn_layers = nn.ModuleList()
+#         self.norm_layers_2 = nn.ModuleList()
+#         for i in range(self.n_layers):
+#             self.attn_layers.append(RelativeMultiheadAttention(hidden_channels, n_heads, dropout = p_dropout, window_size=window_size))
+#             self.norm_layers_1.append(LayerNorm(hidden_channels))
+#             self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
+#             self.norm_layers_2.append(LayerNorm(hidden_channels))
+
+#     def forward(self, x, x_mask):
+#         attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
+#         print(attn_mask.shape)
+#         print(x_mask.shape)
+#         x = x * x_mask
+#         for i in range(self.n_layers):
+#             x = x.permute(2, 0, 1)  # Change shape to [seq_len, batch_size, hidden_channels]
+#             y, _ = self.attn_layers[i](x, x, x, attn_mask=~attn_mask.squeeze().bool())
+#             y = y.permute(1, 2, 0)
+#             # print(y.shape)
+#             # print(x.shape)
+#             y = self.drop(y)
+#             x = x.permute(1, 2, 0)
+#             x = self.norm_layers_1[i](x + y)
+
+#             y = self.ffn_layers[i](x, x_mask)  # Change shape back to [batch_size, hidden_channels, seq_len]
+#             y = self.drop(y)
+#             x = self.norm_layers_2[i](x + y)  # Change shape back to [batch_size, hidden_channels, seq_len]
+
+#         x = x * x_mask
+#         return x
     
 class RelativeMultiheadAttention(nn.MultiheadAttention):
     def __init__(self, embed_dim, num_heads, window_size=None, dropout=0.0, bias=True, add_bias_kv=False, add_zero_attn=False, kdim=None, vdim=None):
@@ -226,28 +226,17 @@ class MultiHeadAttention(nn.Module):
     value = value.view(b, self.n_heads, self.k_channels, t_s).transpose(2, 3)
 
     scores = torch.matmul(query / math.sqrt(self.k_channels), key.transpose(-2, -1))
-    if self.window_size is not None:
-      assert t_s == t_t, "Relative attention is only available for self-attention."
-      key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
-      rel_logits = self._matmul_with_relative_keys(query /math.sqrt(self.k_channels), key_relative_embeddings)
-      scores_local = self._relative_position_to_absolute_position(rel_logits)
-      scores = scores + scores_local
-    if self.proximal_bias:
-      assert t_s == t_t, "Proximal bias is only available for self-attention."
-      scores = scores + self._attention_bias_proximal(t_s).to(device=scores.device, dtype=scores.dtype)
-    if mask is not None:
-      scores = scores.masked_fill(mask == 0, -1e4)
-      if self.block_length is not None:
-        assert t_s == t_t, "Local attention is only available for self-attention."
-        block_mask = torch.ones_like(scores).triu(-self.block_length).tril(self.block_length)
-        scores = scores.masked_fill(block_mask == 0, -1e4)
+    key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
+    rel_logits = self._matmul_with_relative_keys(query /math.sqrt(self.k_channels), key_relative_embeddings)
+    scores_local = self._relative_position_to_absolute_position(rel_logits)
+    scores = scores + scores_local
+    scores = scores.masked_fill(mask == 0, -1e4)
     p_attn = F.softmax(scores, dim=-1) # [b, n_h, t_t, t_s]
     p_attn = self.drop(p_attn)
     output = torch.matmul(p_attn, value)
-    if self.window_size is not None:
-      relative_weights = self._absolute_position_to_relative_position(p_attn)
-      value_relative_embeddings = self._get_relative_embeddings(self.emb_rel_v, t_s)
-      output = output + self._matmul_with_relative_values(relative_weights, value_relative_embeddings)
+    relative_weights = self._absolute_position_to_relative_position(p_attn)
+    value_relative_embeddings = self._get_relative_embeddings(self.emb_rel_v, t_s)
+    output = output + self._matmul_with_relative_values(relative_weights, value_relative_embeddings)
     output = output.transpose(2, 3).contiguous().view(b, d, t_t) # [b, n_h, t_t, d_k] -> [b, d, t_t]
     return output, p_attn
 
@@ -275,8 +264,6 @@ class MultiHeadAttention(nn.Module):
     pad_length = max(length - (self.window_size + 1), 0)
     slice_start_position = max((self.window_size + 1) - length, 0)
     slice_end_position = slice_start_position + 2 * length - 1
-    print(slice_start_position)
-    print(slice_end_position)
     if pad_length > 0:
       padded_relative_embeddings = F.pad(
           relative_embeddings,
@@ -286,7 +273,7 @@ class MultiHeadAttention(nn.Module):
     used_relative_embeddings = padded_relative_embeddings[:,slice_start_position:slice_end_position]
     return used_relative_embeddings
 
-  def _relative_position_to_absolute_position(self, x):
+  def _relative_position_to_absolute_position(self, x): 
     """
     x: [b, h, l, 2*l-1]
     ret: [b, h, l, l]
@@ -301,6 +288,7 @@ class MultiHeadAttention(nn.Module):
 
     # Reshape and slice out the padded elements.
     x_final = x_flat.view([batch, heads, length+1, 2*length-1])[:, :, :length, length-1:]
+    # print(x_final[0][0][0:3])
     return x_final
 
   def _absolute_position_to_relative_position(self, x):
@@ -316,17 +304,6 @@ class MultiHeadAttention(nn.Module):
     x_flat = F.pad(x_flat, commons.convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
     x_final = x_flat.view([batch, heads, length, 2*length])[:,:,:,1:]
     return x_final
-
-  def _attention_bias_proximal(self, length):
-    """Bias for self-attention to encourage attention to close positions.
-    Args:
-      length: an integer scalar.
-    Returns:
-      a Tensor with shape [1, 1, length, length]
-    """
-    r = torch.arange(length, dtype=torch.float32)
-    diff = torch.unsqueeze(r, 0) - torch.unsqueeze(r, 1)
-    return torch.unsqueeze(torch.unsqueeze(-torch.log1p(torch.abs(diff)), 0), 0)
 
 
 class FFN(nn.Module):
