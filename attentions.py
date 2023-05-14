@@ -36,7 +36,8 @@ class Encoder(nn.Module):
     attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
     x = x * x_mask
     for i in range(self.n_layers):
-      y = self.attn_layers[i](x, x, attn_mask)
+      y = self.attn_layers[i](x, x, attn_mask) # x(1, 192, 158), y(1, 192, 158)
+      # print(y.shape)
       y = self.drop(y)
       x = self.norm_layers_1[i](x + y)
 
@@ -46,6 +47,78 @@ class Encoder(nn.Module):
     x = x * x_mask
     return x
 
+# class Encoder(nn.Module):
+#     def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
+#         super().__init__()
+#         self.hidden_channels = hidden_channels
+#         self.filter_channels = filter_channels
+#         self.n_heads = n_heads
+#         self.n_layers = n_layers
+#         self.kernel_size = kernel_size
+#         self.p_dropout = p_dropout
+#         self.window_size = window_size
+
+#         self.drop = nn.Dropout(p_dropout)
+#         self.attn_layers = nn.ModuleList()
+#         self.norm_layers_1 = nn.ModuleList()
+#         self.ffn_layers = nn.ModuleList()
+#         self.norm_layers_2 = nn.ModuleList()
+#         for i in range(self.n_layers):
+#             self.attn_layers.append(RelativeMultiheadAttention(hidden_channels, n_heads, dropout = p_dropout, window_size=window_size))
+#             self.norm_layers_1.append(LayerNorm(hidden_channels))
+#             self.ffn_layers.append(FFN(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
+#             self.norm_layers_2.append(LayerNorm(hidden_channels))
+
+#     def forward(self, x, x_mask):
+#         attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
+#         print(attn_mask.shape)
+#         print(x_mask.shape)
+#         x = x * x_mask
+#         for i in range(self.n_layers):
+#             x = x.permute(2, 0, 1)  # Change shape to [seq_len, batch_size, hidden_channels]
+#             y, _ = self.attn_layers[i](x, x, x, attn_mask=~attn_mask.squeeze().bool())
+#             y = y.permute(1, 2, 0)
+#             # print(y.shape)
+#             # print(x.shape)
+#             y = self.drop(y)
+#             x = x.permute(1, 2, 0)
+#             x = self.norm_layers_1[i](x + y)
+
+#             y = self.ffn_layers[i](x, x_mask)  # Change shape back to [batch_size, hidden_channels, seq_len]
+#             y = self.drop(y)
+#             x = self.norm_layers_2[i](x + y)  # Change shape back to [batch_size, hidden_channels, seq_len]
+
+#         x = x * x_mask
+#         return x
+    
+class RelativeMultiheadAttention(nn.MultiheadAttention):
+    def __init__(self, embed_dim, num_heads, window_size=None, dropout=0.0, bias=True, add_bias_kv=False, add_zero_attn=False, kdim=None, vdim=None):
+        super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim)
+        self.window_size = window_size
+        if window_size is not None:
+            self.emb_rel_k = nn.Parameter(torch.randn(1, window_size * 2 + 1, embed_dim))
+            self.emb_rel_v = nn.Parameter(torch.randn(1, window_size * 2 + 1, embed_dim))
+
+    def forward(self, query, key, value, key_padding_mask=None, need_weights=True, attn_mask=None):
+        # Add relative positional embeddings to the key and value tensors
+        if self.window_size is not None:
+            key = key + self._get_relative_embeddings(self.emb_rel_k, key.size(0))
+            value = value + self._get_relative_embeddings(self.emb_rel_v, value.size(0))
+
+        # Call the original forward method
+        return super().forward(query, key, value, key_padding_mask, need_weights, attn_mask)
+
+    def _get_relative_embeddings(self, relative_embeddings, length):
+        max_relative_position = 2 * self.window_size + 1
+        pad_length = max(length - (self.window_size + 1), 0)
+        slice_start_position = max((self.window_size + 1) - length, 0)
+        slice_end_position = slice_start_position + 2 * length - 1
+        if pad_length > 0:
+            padded_relative_embeddings = F.pad(relative_embeddings, (0, 0, pad_length, pad_length))
+        else:
+            padded_relative_embeddings = relative_embeddings
+        used_relative_embeddings = padded_relative_embeddings[:, slice_start_position:slice_end_position]
+        return used_relative_embeddings.permute(1, 0, 2)
 
 class Decoder(nn.Module):
   def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., proximal_bias=False, proximal_init=True, **kwargs):
@@ -202,6 +275,8 @@ class MultiHeadAttention(nn.Module):
     pad_length = max(length - (self.window_size + 1), 0)
     slice_start_position = max((self.window_size + 1) - length, 0)
     slice_end_position = slice_start_position + 2 * length - 1
+    print(slice_start_position)
+    print(slice_end_position)
     if pad_length > 0:
       padded_relative_embeddings = F.pad(
           relative_embeddings,
