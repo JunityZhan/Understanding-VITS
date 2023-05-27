@@ -489,7 +489,7 @@ class SynthesizerTrn(nn.Module):
       logw = self.dp(x, x_mask, g=g)
       l_length = torch.sum((logw - logw_)**2, [1,2]) / torch.sum(x_mask) # loss of duration predictor
 
-    # expand prior
+    # expand prior(from [b, 1, t_s] to [b, 1, t_t])
     m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2)
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
