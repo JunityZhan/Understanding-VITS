@@ -458,7 +458,7 @@ if __name__ == '__main__':
     train_dataset = TextAudioLoader(load_filepaths_and_text('data/train.txt'))
 
     collate_fn = TextAudioCollate()
-    train_loader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=24, num_workers=4) # set the batch_size according to your GPU memory
+    train_loader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=24, num_workers=6) # set the batch_size according to your GPU memory
 
     # Define Models, the same as before
     net_g = SynthesizerTrn(
@@ -482,7 +482,8 @@ if __name__ == '__main__':
 
         
     for epoch in range(epochs):
-
+        net_g.train()
+        net_d.train()
         for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths) in enumerate(train_loader):
 
             (x, x_lengths, spec, spec_lengths, y, y_lengths) \
@@ -494,9 +495,6 @@ if __name__ == '__main__':
             
             # Choose the exact same slice from the real waveform by passing ids_slice
             with autocast(enabled=True):
-                y = commons.slice_segments(y, ids_slice * hop_length, segment_size) 
-
-                y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
 
             ### Training
             
@@ -518,7 +516,9 @@ if __name__ == '__main__':
                         mel_fmin,
                         mel_fmax
                     )
-            
+                y = commons.slice_segments(y, ids_slice * hop_length, segment_size) 
+
+                y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
             with autocast(enabled=False): # do not use mix precision here because there is not need to do so.
                 # mix precision speed up training, but discrminator calculate fast
 
@@ -533,14 +533,14 @@ if __name__ == '__main__':
 
             with autocast(enabled=True): # use mix precision
                 y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(y, y_hat) # we already update net_d
-            with autocast(enabled=False): # Calculate loss, and we do not use mix precision because they are not part of the nets.
-                loss_dur = torch.sum(l_length.float())
-                loss_mel = F.l1_loss(y_mel, y_hat_mel) * 45.0 # 45 is the weight of mel loss
-                loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * 1.0 # 1.0 is the weight of kl loss
+                with autocast(enabled=False): # Calculate loss, and we do not use mix precision because they are not part of the nets.
+                    loss_dur = torch.sum(l_length.float())
+                    loss_mel = F.l1_loss(y_mel, y_hat_mel) * 45.0 # 45 is the weight of mel loss
+                    loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * 1.0 # 1.0 is the weight of kl loss
 
-                loss_fm = feature_loss(fmap_r, fmap_g)
-                loss_gen, losses_gen = generator_loss(y_d_hat_g)
-                loss_gen_all = loss_gen + loss_fm + loss_mel + loss_dur + loss_kl
+                    loss_fm = feature_loss(fmap_r, fmap_g)
+                    loss_gen, losses_gen = generator_loss(y_d_hat_g)
+                    loss_gen_all = loss_gen + loss_fm + loss_mel + loss_dur + loss_kl
             optim_g.zero_grad()
             scaler.scale(loss_gen_all).backward()
             scaler.unscale_(optim_g)
@@ -548,9 +548,11 @@ if __name__ == '__main__':
             scaler.update()
 
             if batch_idx % 100 == 0:
+                net_g.eval()
                 print("epoch: {}, batch: {}, loss_disc: {}, loss_gen: {}, loss_mel: {}, loss_dur: {}, loss_kl: {}, loss_fm: {}".format(
                     epoch, batch_idx, loss_disc, loss_gen, loss_mel, loss_dur, loss_kl, loss_fm
                 ))
                 # save model
                 save_checkpoint(net_g, optim_g, 2e-4, epoch, os.path.join('checkpoints', "net_g.pt"))
                 save_checkpoint(net_d, optim_d, 2e-4, epoch, os.path.join('checkpoints', "net_d.pt"))
+                net_g.train()
