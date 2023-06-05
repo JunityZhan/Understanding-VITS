@@ -9,6 +9,9 @@ Begin by reading through the vits.ipynb file and executing the code line by line
 1. In comments, I may add "**Keywords: xxx**". When you see this, it means if you don't have background knowledge that make you hard to understand, just search the keyword to see if you can understand by other tutorials. Or why not ASK **GPT4**?
 2. Because of the nature of class, I can not implement a class step by step, by which we can see how the data is flowed, so you may use **DEBUG TOOL**, add watch to the shape of tensor or some data of tensor, so that it may help you to understand.
 
+### vits.ipynb
+In vits.ipynb, I will guide you through a complete process of vits, from making dataset and building models, to training and inference. If you follow the steps, you can train a usable vits model and easy to synthesize voice yourself.
+
 ### Dataset.ipynb
 
 VITS is an end-to-end Text-to-Speech (TTS) system, and understanding how it transforms raw resources into training data is crucial. In an end-to-end TTS, we use both waveforms and text as input. We'll delve into the process of converting these waveforms and text into suitable datasets.
